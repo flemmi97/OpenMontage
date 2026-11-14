@@ -74,7 +74,7 @@ quality require live validation in the intended environment.
 | 1 | **$0** | Pexels + Pixabay | Stock photos and videos — enough to produce basic videos |
 | 2 | **$0** | Google API key | TTS with 700+ voices (1M chars/month free) + $300 new account credit |
 | 3 | **$0** | ElevenLabs | Premium TTS + music + SFX (10K chars/month free) |
-| 4 | **$0** | Piper (local install) | Fully offline TTS — no API key, no cost, no network |
+| 4 | **$0** | Kokoro or Piper (local install) | Fully offline TTS — no API key, no cost, no network (Kokoro sounds more natural) |
 | 5 | **~$0.03/image** | fal.ai | FLUX images + Kling/Veo/MiniMax video + Recraft — broad single-key image + video coverage |
 | 6 | **~$0.05/image** | OpenAI | GPT Image 2 images + OpenAI TTS |
 | 7 | **~$0.04/image** | Google Imagen | Imagen 4 images (shares the Google API key) |
@@ -1349,6 +1349,27 @@ piper --download-dir ~/.piper/models --model en_US-lessac-medium
 
 ---
 
+### Kokoro TTS — Natural Offline Text-to-Speech
+
+> **Free, fully offline, and noticeably more natural than Piper.** Kokoro-82M (Apache-2.0) via ONNX — no PyTorch, no GPU.
+
+**Tool:** `kokoro_tts`
+**Runtime:** CPU (no GPU needed)
+**Env var:** None (optional `KOKORO_MODEL_DIR`, default `~/.kokoro`)
+
+#### Setup
+
+```bash
+pip install kokoro-onnx soundfile
+mkdir -p ~/.kokoro && cd ~/.kokoro
+curl -LO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+curl -LO https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+```
+
+**Voices:** US/UK English (`af_heart`, `af_bella`, `am_michael`, `am_fenrir`, `bf_emma`, `bm_george`, …) plus Spanish, French, Italian, Japanese, Portuguese, Hindi and Mandarin. No German — use Piper for German. See `.agents/skills/kokoro-tts/SKILL.md`.
+
+---
+
 ### ComfyUI Video — Local Workflows and Hosted Partner Nodes
 
 **Tool:** `comfyui_video`
@@ -1560,6 +1581,7 @@ These tools require only FFmpeg or Python packages — no GPU, no API key.
 | **Pexels** | `PEXELS_API_KEY` | `pexels_image`, `pexels_video` | Free |
 | **Pixabay** | `PIXABAY_API_KEY` | `pixabay_image`, `pixabay_video` | Free |
 | **Piper** | — (install only) | `piper_tts` | Free |
+| **Kokoro** | — (install only) | `kokoro_tts` | Free |
 | **Azure AI Speech** | `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` | `azure_stt`, `azure_tts` | Free tier + paid |
 | **Google** | `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) | `google_tts`, `google_imagen`, `google_music`, `gemini_omni_video`, `veo_video` | Free tier (TTS) + paid |
 | **ElevenLabs** | `ELEVENLABS_API_KEY` | `elevenlabs_tts`, `music_gen` | Free tier + paid |
@@ -1592,7 +1614,7 @@ How many providers cover each capability:
 |-----------|----------------|-----------------|--------------|
 | **Image Generation** | FLUX, Kling Official, Grok, Google Imagen, GPT Image 2, Recraft | Local Diffusion | Pexels, Pixabay (stock) |
 | **Video Generation** | Grok, Kling Official, fal.ai, Seedance via Volcengine Ark, Runway, Veo, Gemini Omni, Higgsfield, MiniMax, Pika H3 Flex, HeyGen, Tencent Hunyuan, ComfyUI Partner Nodes | WAN, Hunyuan, CogVideo, LTX, ComfyUI WAN, ComfyUI MiniMax H3 | Pexels, Pixabay (stock) |
-| **Text-to-Speech** | Azure AI Speech, ElevenLabs, fish.audio, Google TTS, Kling Official, OpenAI | Piper | Piper, Google free tier, ElevenLabs free tier, Azure free tier, fish.audio s2.1-pro-free |
+| **Text-to-Speech** | Azure AI Speech, ElevenLabs, fish.audio, Google TTS, Kling Official, OpenAI | Kokoro, Piper | Kokoro, Piper, Google free tier, ElevenLabs free tier, Azure free tier, fish.audio s2.1-pro-free |
 | **Music Generation** | ElevenLabs, Suno, Google Lyria | — | ElevenLabs free tier |
 | **Post-Production** | — | FFmpeg (compose, stitch, trim, mix, enhance, grade) | All free |
 | **Analysis** | — | WhisperX, Scene Detect, Frame Sampler, CLIP/BLIP-2 | All free |
