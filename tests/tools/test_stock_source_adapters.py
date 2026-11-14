@@ -778,3 +778,57 @@ def test_mixkit_json_ld_keeps_declared_portrait_dimensions(monkeypatch, fields):
     (clip,) = _mixkit_json_ld_search(monkeypatch, fields)
 
     assert (clip.width, clip.height) == (1080, 1920)
+
+
+def test_wikimedia_transcode_urls_for_rate_limited_originals():
+    from tools.video.stock_sources.wikimedia import _transcode_urls
+
+    url = "https://upload.wikimedia.org/wikipedia/commons/e/ef/Bees_on_a_plank.webm?utm_source=commons.wikimedia.org"
+    urls = _transcode_urls(url)
+    assert urls[0] == (
+        "https://upload.wikimedia.org/wikipedia/commons/transcoded/e/ef/"
+        "Bees_on_a_plank.webm/Bees_on_a_plank.webm.1080p.vp9.webm"
+    )
+    assert any(u.endswith(".720p.vp9.webm") for u in urls)
+    assert _transcode_urls("https://example.com/video.webm") == []
+
+
+def test_wikimedia_download_falls_back_to_transcode_on_429(tmp_path, monkeypatch):
+    import requests
+
+    from tools.video.stock_sources.base import Candidate
+    from tools.video.stock_sources.wikimedia import WikimediaSource
+
+    calls = []
+
+    class Resp:
+        def __init__(self, status):
+            self.status_code = status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(response=self)
+
+        def iter_content(self, chunk_size):
+            yield b"webmdata"
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return Resp(429 if "/transcoded/" not in url or "1080p" in url else 200)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    cand = Candidate(
+        source="wikimedia", source_id="1", source_url="https://commons.wikimedia.org/wiki/File:X.webm",
+        download_url="https://upload.wikimedia.org/wikipedia/commons/a/ab/X.webm", kind="video",
+        width=1920, height=1080, duration=10.0, creator="c", license="CC BY 4.0",
+    )
+    out = WikimediaSource().download(cand, tmp_path / "x.webm")
+    assert out.read_bytes() == b"webmdata"
+    assert calls[0].endswith("/a/ab/X.webm")
+    assert calls[-1].endswith("X.webm.720p.vp9.webm")

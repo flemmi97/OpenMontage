@@ -114,18 +114,52 @@ class WikimediaSource:
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with requests.get(
-            candidate.download_url,
-            stream=True,
-            timeout=300,
-            headers={"User-Agent": _USER_AGENT},
-        ) as r:
-            r.raise_for_status()
-            with open(out_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=1 << 16):
-                    if chunk:
-                        f.write(chunk)
-        return out_path
+        urls = [candidate.download_url]
+        if candidate.kind == "video":
+            # upload.wikimedia.org rate-limits original-file downloads (HTTP 429/403),
+            # especially from shared cloud IPs, and asks clients to use derivatives.
+            # Commons pre-renders WebM transcodes of every video; fall back to those.
+            urls += _transcode_urls(candidate.download_url)
+
+        last_error: Exception | None = None
+        for url in urls:
+            try:
+                with requests.get(
+                    url,
+                    stream=True,
+                    timeout=300,
+                    headers={"User-Agent": _USER_AGENT},
+                ) as r:
+                    r.raise_for_status()
+                    with open(out_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=1 << 16):
+                            if chunk:
+                                f.write(chunk)
+                return out_path
+            except requests.HTTPError as exc:
+                last_error = exc
+                status = exc.response.status_code if exc.response is not None else None
+                if status not in (403, 404, 429):
+                    raise
+        assert last_error is not None
+        raise last_error
+
+
+_TRANSCODE_VARIANTS = ("1080p.vp9.webm", "720p.vp9.webm", "720p.webm", "480p.vp9.webm")
+
+
+def _transcode_urls(download_url: str) -> list[str]:
+    """Commons transcode URLs for an original video URL, best quality first.
+
+    ``.../wikipedia/commons/e/ef/Name.webm`` ->
+    ``.../wikipedia/commons/transcoded/e/ef/Name.webm/Name.webm.720p.vp9.webm``
+    """
+    base = download_url.split("?", 1)[0]
+    m = re.match(r"^(https://upload\.wikimedia\.org/wikipedia/commons)/([0-9a-f])/([0-9a-f]{2})/([^/]+)$", base)
+    if not m:
+        return []
+    root, a, ab, name = m.groups()
+    return [f"{root}/transcoded/{a}/{ab}/{name}/{name}.{variant}" for variant in _TRANSCODE_VARIANTS]
 
 
 def _build_search_queries(query: str, kind: str) -> list[tuple[str, str]]:
